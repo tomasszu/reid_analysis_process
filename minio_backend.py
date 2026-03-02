@@ -31,12 +31,20 @@ class MinioBackend:
         for obj in objects:
             yield obj.object_name
 
+    def get_object(self, key: str) -> bytes:
+        response = self.client.get_object(self.bucket, key)
+        data = response.read()
+        response.close()
+        response.release_conn()
+        return data
+
     def bucket_exists(self) -> bool:
         return self.client.bucket_exists(self.bucket)
 
 
+## Class for testing behaviour of MinIO backend
 def main():
-    # Adjust to your local MinIO config
+    # Adjust to your MinIO config
     backend = MinioBackend(
         endpoint="localhost:9000",
         access_key="minioadmin",

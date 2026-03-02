@@ -22,6 +22,12 @@ reid_analysis/
 
 ## Components:
 
+### Wrapper for minio client
+
+Environmental variables pulled from .env file for MinIO client via dot env package.
+
 ### Data Loader
+
+Data loader enforces abstract class callable methods and hold different loss functions.
 
 
