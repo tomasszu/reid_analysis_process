@@ -1,3 +1,5 @@
+from typing import Optional
+
 from minio import Minio
 from minio.error import S3Error
 
@@ -19,17 +21,16 @@ class MinioBackend:
             secure=secure,
         )
 
-    def list_objects(self, prefix: str = "", recursive: bool = True):
+    def list_objects(self, prefix: str = "", recursive: bool = True, max_keys: Optional[int] = None):
         """
-        Returns a generator of object names.
+        Returns a generator of object names. Max returnable objects can be limited with max_keys.
         """
-        objects = self.client.list_objects(
-            self.bucket,
-            prefix=prefix,
-            recursive=recursive,
-        )
-        for obj in objects:
+        count = 0
+        for obj in self.client.list_objects(self.bucket, prefix=prefix, recursive=True):
             yield obj.object_name
+            count += 1
+            if max_keys is not None and count >= max_keys:
+                break
 
     def get_object(self, key: str) -> bytes:
         response = self.client.get_object(self.bucket, key)

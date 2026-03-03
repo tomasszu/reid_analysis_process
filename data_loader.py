@@ -1,10 +1,18 @@
 from abc import ABC, abstractmethod
-from typing import Iterable
+from typing import Iterable, Dict, Optional
+from dataclasses import dataclass
+import json
+
+@dataclass
+class Sighting:
+    obj_key: str           # original path in storage
+    data: Dict             # full JSON dict
+    day: str               # optional, for convenience
 
 
 class StorageBackend(ABC):
     @abstractmethod
-    def list_objects(self, prefix: str = "") -> Iterable[str]:
+    def list_objects(self, prefix: str = "", max_keys: Optional[int] = None) -> Iterable[str]:
         pass
 
     @abstractmethod
@@ -35,3 +43,15 @@ def load_day(storage: StorageBackend, day: str, model: str):
 
             # parse embedding here
             print(obj_key, len(raw_bytes))
+
+def load_sightings_day(storage: StorageBackend, day: str):
+    prefix = f"sightings/{day}"
+    sightings = []
+
+    for obj_key in storage.list_objects(prefix):
+        raw = storage.get_object(obj_key)
+        data = json.loads(raw)
+
+        sightings.append(Sighting(obj_key=obj_key, data=data, day=day))
+
+    return sightings
