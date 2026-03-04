@@ -103,26 +103,41 @@ class LPRAnnotator:
 
         if not any_detection:
             final_plate = None
-            overall_conf = 0.0
+            confidence = 0.0
             status = "none"
+            char_scores_trimmed = char_scores
 
         else:
-            final_plate = "".join(plate_chars).rstrip("_")
+            # find last non-underscore char index
+            last_idx = max((i for i, c in enumerate(plate_chars) if c != "_"), default=-1)
 
-            valid_scores = char_scores[char_scores > self.min_char_score]
-            overall_conf = float(valid_scores.mean()) if len(valid_scores) else 0.0
-
-            if "_" in plate_chars:
-                status = "partial"
+            if last_idx == -1:
+                final_plate = ""
+                char_scores_trimmed = []
             else:
-                status = "ok"
+                # truncate both plate chars and scores to last non-underscore
+                plate_trimmed = plate_chars[:last_idx+1]
+                char_scores_trimmed = char_scores[:last_idx+1]
+
+                final_plate = "".join(plate_trimmed)
+
+            # filter valid char scores
+            char_scores_array = np.array(char_scores_trimmed)
+            valid_scores = char_scores_array[char_scores_array > self.min_char_score]
+
+            # compute overall confidence
+            confidence = float(valid_scores.mean()) if len(valid_scores) else 0.0
+
+            # status
+            status = "partial" if "_" in plate_trimmed else "ok"
+
 
         # ---- attach same LPR block to ALL sightings in track ----
 
         lpr_block = {
             "plate": final_plate,
-            "char_scores": char_scores.tolist(),
-            "confidence": overall_conf,
+            "char_scores": char_scores_trimmed.tolist(),
+            "confidence": confidence,
             "status": status,
         }
 
@@ -134,6 +149,12 @@ class LPRAnnotator:
         img_np = np.array(Image)  # shape (H, W, 3)
         
         det_results = self.lpr_detection_model.predict(source=img_np)[0]
+
+        # Check if detection exists
+        boxes_list = det_results.boxes.data.tolist()
+        #if not - we return bacl
+        if not boxes_list:
+            raise IndexError
 
         license_plate = det_results.boxes.data.tolist()[0]
 

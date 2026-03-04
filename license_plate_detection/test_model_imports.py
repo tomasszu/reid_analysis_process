@@ -26,8 +26,8 @@ def run_lpr_test(det_model, rec_model):
         # crop license plate
         license_plate_crop = image[int(y1):int(y2), int(x1): int(x2), :]
 
-        cv2.imshow("crop",license_plate_crop)
-        cv2.waitKey(0)
+        # cv2.imshow("crop",license_plate_crop)
+        # cv2.waitKey(0)
 
         print(rec_model.run(source = license_plate_crop, return_confidence=True))
         print("LPR Models working successfully")
