@@ -1,9 +1,11 @@
 # analysis/static_corrections.py
 import os
-from datetime import datetime, timedelta
 from typing import List
 from PIL import Image
-from data_loader import Sighting  # adjust import if needed
+from io import BytesIO
+
+from data_loader import Sighting, StorageBackend  # adjust import if needed
+
 
 class StaticVehicleCorrector:
     """
@@ -11,8 +13,9 @@ class StaticVehicleCorrector:
     """
     def __init__(
         self,
+        storage: StorageBackend,
         time_window_sec: int = 5*60,
-        res_tolerance: float = 0.03,
+        res_tolerance: float = 0.025,
         size_tolerance: float = 0.07,
         min_width: int = 70,
         min_height: int = 70
@@ -24,6 +27,7 @@ class StaticVehicleCorrector:
             size_tolerance: allowable % difference in file size
             min_width/min_height: minimum image dimensions
         """
+        self.storage = storage
         self.time_window_sec = time_window_sec
         self.res_tolerance = res_tolerance
         self.size_tolerance = size_tolerance
@@ -44,18 +48,28 @@ class StaticVehicleCorrector:
         sightings.sort(key=lambda s: s.obj_key)
 
         for sighting in sightings:
-            img_path = sighting.data["image_path"]
+            img_key = sighting.data["image_path"]
             cam_id = sighting.data["camera_id"]
             ts_ns = sighting.data["timestamp_ns"]
             track_id = sighting.data["track_id"]
 
             # --- check image size ---
             try:
-                with Image.open(img_path) as img:
+                img_bytes = self.storage.get_object(img_key)
+                with Image.open(BytesIO(img_bytes)) as img:
                     width, height = img.size
-                sighting.data["adequate_size"] = width >= self.min_width and height >= self.min_height
+
+                file_size = len(img_bytes)
+
+                sighting.data["adequate_size"] = (
+                    width >= self.min_width and height >= self.min_height
+                )
+
             except Exception:
                 sighting.data["adequate_size"] = False
+                sighting.data["duplicate"] = False
+                print("Error while establishing image size and reolution. File may not have been loaded properly.")
+                continue
 
             # Skip duplicate check if not adequate
             if not sighting.data["adequate_size"]:
@@ -74,7 +88,6 @@ class StaticVehicleCorrector:
 
             # --- duplicate detection ---
             is_duplicate = False
-            file_size = os.path.getsize(img_path)
 
             for prev in self.cache[cam_id]:
                 # Only check sightings with DIFFERENT track_id

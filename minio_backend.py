@@ -3,6 +3,8 @@ from typing import Optional
 from minio import Minio
 from minio.error import S3Error
 
+from io import BytesIO
+
 
 class MinioBackend:
     def __init__(
@@ -38,6 +40,21 @@ class MinioBackend:
         response.close()
         response.release_conn()
         return data
+    
+    def put_object(self, key: str, data: bytes) -> None:
+        """
+        Upload or overwrite object at given key.
+        """
+        data_stream = BytesIO(data)
+        data_length = len(data)
+
+        self.client.put_object(
+            bucket_name=self.bucket,
+            object_name=key,
+            data=data_stream,
+            length=data_length,
+            content_type="application/json",
+        )
 
     def bucket_exists(self) -> bool:
         return self.client.bucket_exists(self.bucket)

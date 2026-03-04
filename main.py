@@ -2,7 +2,12 @@ import os
 from datetime import datetime, timedelta
 
 from minio_backend import MinioBackend
-from data_loader import StorageBackend, load_sightings_day
+from data_loader import StorageBackend, load_sightings_day, save_analysis_sighting, load_analysis_day, update_analysis
+
+from tracking_correction.size_and_static_corrections import StaticVehicleCorrector
+from tracking_correction.daytime_check import DaylightFilter
+
+from license_plate_detection.lpr_annotator import LPRAnnotator
 
 # ENV variables import
 from dotenv import load_dotenv
@@ -30,6 +35,18 @@ def main():
     if not storage.bucket_exists():
         print("Bucket does not exist.")
         return
+    
+    #initialize size and static detections corrector
+    corrector = StaticVehicleCorrector(storage)
+
+    #initialize daylight filter
+    daylight_filter = DaylightFilter(
+        latitude=56.98,
+        longitude=24.19,
+        timezone="Europe/Riga"
+    )
+
+    lpr_annotator = LPRAnnotator(storage)
 
     # We loop through the days in the dataset and load the data for each day.
     #date of first and last recording that would be in the dataset, adjust as needed
@@ -44,20 +61,53 @@ def main():
         current += timedelta(days=1)
 
     for day_str in candidate_days:
+
+        # <<<<<<<<<<<<<<<<<<<<<<<< Load Sightings >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         # cheap existence check
-        objects = list(storage.list_objects(f"sightings/{day_str}", recursive=False, max_keys=1))
+        # objects = list(storage.list_objects(f"sightings/{day_str}", recursive=False, max_keys=1))
+        # if not objects:
+        #     continue
+
+        # # Load all sighting JSONs for that day
+        # sightings = load_sightings_day(storage, day_str)
+
+        # # Mark adequate_size and duplicate
+        # corr_sightings = corrector.mark_sightings(sightings)
+
+        # # Save augmented JSONs to analysis/
+
+        # for sighting in corr_sightings:
+        #     save_analysis_sighting(storage, sighting)
+
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<< Load Analysis >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        objects = list(storage.list_objects(f"analysis/{day_str}", recursive=False, max_keys=1))
         if not objects:
             continue
 
-        # Load all JSONs for that day
-        sightings = load_sightings_day(storage, day_str)
+        # # Load all analysis JSONs for that day
+        analysies = load_analysis_day(storage, day_str)
 
-        # perform analysis / augmentation
-        for row in sightings:
-            print(row)
-            pass
+        # analysies = daylight_filter.mark_daytime(analysies)
+
+        if lpr_annotator.run_test():
+            lpr_annotator.process(analysies)
+        else:
+            print("Skipping License Plate recognition, models not working properly.")
+
+
+
+        # save back to analysis/
+
+        for a in analysies:
+            update_analysis(storage, a)
+
+
+
+
+
+
             
-            #augment_sighting(row)
 
         # Save augmented JSONs under analysis/
         #save_augmented_rows(storage, rows)

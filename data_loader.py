@@ -20,6 +20,11 @@ class StorageBackend(ABC):
         pass
 
     @abstractmethod
+    def put_object(self, key: str, data: bytes) -> None:
+        """Write or overwrite object at key"""
+        pass
+
+    @abstractmethod
     def bucket_exists(self) -> bool:
         pass
 
@@ -55,3 +60,59 @@ def load_sightings_day(storage: StorageBackend, day: str):
         sightings.append(Sighting(obj_key=obj_key, data=data, day=day))
 
     return sightings
+
+def load_analysis_day(storage: StorageBackend, day: str):
+    prefix = f"analysis/{day}"
+    analysis = []
+
+    for obj_key in storage.list_objects(prefix):
+        raw = storage.get_object(obj_key)
+        data = json.loads(raw)
+
+        analysis.append(Sighting(obj_key=obj_key, data=data, day=day))
+
+    return analysis
+
+def save_analysis_sighting(storage: StorageBackend, sighting: Sighting):
+    """
+    Saves modified sighting JSON under analysis/ prefix.
+    Does NOT delete anything. Only overwrites or creates.
+    """
+
+    # Convert:
+    # sightings/YYYY/MM/DD/uuid.json
+    # → analysis/YYYY/MM/DD/uuid.json
+
+    if not sighting.obj_key.startswith("sightings/"):
+        raise ValueError("Unexpected obj_key format")
+
+    analysis_key = sighting.obj_key.replace("sightings/", "analysis/", 1)
+
+    json_bytes = json.dumps(sighting.data, indent=2).encode("utf-8")
+
+    storage.put_object(analysis_key, json_bytes)
+
+def update_analysis(storage: StorageBackend, analysis: Sighting):
+    """
+    Merge-updates analysis JSON.
+    Only adds/updates fields. Never deletes existing ones.
+    """
+
+    # → analysis/YYYY/MM/DD/uuid.json
+
+    analysis_key = analysis.obj_key  # already analysis/ path
+
+
+    try:
+        # Try loading existing analysis file
+        existing_raw = storage.get_object(analysis_key)
+        existing_data = json.loads(existing_raw)
+    except Exception:
+        # If not existing, start fresh
+        existing_data = {}
+
+    # Merge: sighting.data overwrites existing_data keys
+    merged = {**existing_data, **analysis.data}
+
+    json_bytes = json.dumps(merged, indent=2).encode("utf-8")
+    storage.put_object(analysis_key, json_bytes)
