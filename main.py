@@ -95,12 +95,18 @@ def main():
         else:
             print("Skipping License Plate recognition, models not working properly.")
 
-
-
         # save back to analysis/
 
         for a in analysies:
             update_analysis(storage, a)
+
+    
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<< Load Analysis pt. 2 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+        objects = list(storage.list_objects(f"analysis/{day_str}", recursive=False, max_keys=1))
+        if not objects:
+            continue
 
 
 

@@ -8,8 +8,9 @@ from io import BytesIO
 from ultralytics import YOLO
 from fast_plate_ocr import LicensePlateRecognizer
 
-from license_plate_detection.test_model_imports import run_lpr_test
+MIN_CHAR_SCORE = 0.5 # This can be changed, but from some examples this seemed correct
 
+from license_plate_detection.test_model_imports import run_lpr_test
 
 class LPRAnnotator:
     def __init__(self, storage, plate_length: int = 9):
@@ -24,7 +25,7 @@ class LPRAnnotator:
 
         self.plate_length = plate_length
 
-        self.min_char_score = 0.45 # This can be changed, but from some examples this seemed correct
+        self.min_char_score = MIN_CHAR_SCORE 
 
     # ---------------------------------------------------------
 
@@ -114,11 +115,17 @@ class LPRAnnotator:
             if last_idx == -1:
                 final_plate = ""
                 char_scores_trimmed = []
+                plate_trimmed = []
             else:
+                # replace low confidence chars
+                plate_chars = [
+                    c if s >= self.min_char_score else "_"
+                    for c, s in zip(plate_chars, char_scores)
+                ]
+
                 # truncate both plate chars and scores to last non-underscore
                 plate_trimmed = plate_chars[:last_idx+1]
                 char_scores_trimmed = char_scores[:last_idx+1]
-
                 final_plate = "".join(plate_trimmed)
 
             # filter valid char scores
@@ -127,7 +134,6 @@ class LPRAnnotator:
 
             # compute overall confidence
             confidence = float(valid_scores.mean()) if len(valid_scores) else 0.0
-
             # status
             status = "partial" if "_" in plate_trimmed else "ok"
 
@@ -166,4 +172,3 @@ class LPRAnnotator:
         read, scores = self.lpr_recognition_model.run(source = license_plate_crop, return_confidence=True)
 
         return read, scores
-
