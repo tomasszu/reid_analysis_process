@@ -9,6 +9,8 @@ from tracking_correction.daytime_check import DaylightFilter
 
 from license_plate_detection.lpr_annotator import LPRAnnotator
 
+from inference.vehicle_event_builder import VehicleEventBuilder
+
 # ENV variables import
 from dotenv import load_dotenv
 load_dotenv()
@@ -48,6 +50,8 @@ def main():
 
     lpr_annotator = LPRAnnotator(storage)
 
+    vehicle_event_builder = VehicleEventBuilder(storage)
+
     # We loop through the days in the dataset and load the data for each day.
     #date of first and last recording that would be in the dataset, adjust as needed
     start_date = datetime.fromisoformat("2026-02-12")
@@ -81,24 +85,24 @@ def main():
 
         # <<<<<<<<<<<<<<<<<<<<<<<<<<< Load Analysis >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-        objects = list(storage.list_objects(f"analysis/{day_str}", recursive=False, max_keys=1))
-        if not objects:
-            continue
+        # objects = list(storage.list_objects(f"analysis/{day_str}", recursive=False, max_keys=1))
+        # if not objects:
+        #     continue
 
-        # # Load all analysis JSONs for that day
-        analysies = load_analysis_day(storage, day_str)
+        # # # Load all analysis JSONs for that day
+        # analysies = load_analysis_day(storage, day_str)
 
         # analysies = daylight_filter.mark_daytime(analysies)
 
-        if lpr_annotator.run_test():
-            lpr_annotator.process(analysies)
-        else:
-            print("Skipping License Plate recognition, models not working properly.")
+        # if lpr_annotator.run_test():
+        #     lpr_annotator.process(analysies)
+        # else:
+        #     print("Skipping License Plate recognition, models not working properly.")
 
-        # save back to analysis/
+        # # save back to analysis/
 
-        for a in analysies:
-            update_analysis(storage, a)
+        # for a in analysies:
+        #     update_analysis(storage, a)
 
     
         # <<<<<<<<<<<<<<<<<<<<<<<<<<< Load Analysis pt. 2 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -108,7 +112,16 @@ def main():
         if not objects:
             continue
 
+        # # Load all analysis JSONs for that day
+        analysies = load_analysis_day(storage, day_str)
 
+
+        vehicle_events = vehicle_event_builder.build_events(analysies)
+
+        print(vehicle_events)
+
+
+        # Šiet jāseivo atpakaļ minio jaunā vehicle_events direktorijaa un jataisa jauna sadaļa Streamlite lietotnē.
 
 
 

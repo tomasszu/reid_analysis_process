@@ -1,11 +1,10 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict
 import numpy as np
 
 
 @dataclass
 class VehicleEvent:
-
     event_id: int
     camera_id: str
 
@@ -20,4 +19,9 @@ class VehicleEvent:
     plate_confidence: float = 0.0
 
     embedding_centroid: Optional[np.ndarray] = None
+    embedding_variance: Optional[float] = None
+
     representative_image: Optional[str] = None
+
+    # per-track merge scores for explainability
+    track_merge_scores: Dict[int, Dict[str, float]] = field(default_factory=dict)

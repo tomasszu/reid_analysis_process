@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Iterable, Dict, Optional
 from dataclasses import dataclass
 import json
+from io import BytesIO
 
 @dataclass
 class Sighting:

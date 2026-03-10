@@ -61,6 +61,10 @@ class StaticVehicleCorrector:
 
                 file_size = len(img_bytes)
 
+                sighting.data["width"] = width
+                sighting.data["height"] = height
+                sighting.data["file_size"] = file_size
+
                 sighting.data["adequate_size"] = (
                     width >= self.min_width and height >= self.min_height
                 )
