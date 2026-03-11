@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 
 from minio_backend import MinioBackend
-from data_loader import StorageBackend, load_sightings_day, save_analysis_sighting, load_analysis_day, update_analysis
+from data_loader import StorageBackend, load_sightings_day, save_analysis_sighting, load_analysis_day, update_analysis, save_vehicle_event
 
 from tracking_correction.size_and_static_corrections import StaticVehicleCorrector
 from tracking_correction.daytime_check import DaylightFilter
@@ -119,6 +119,11 @@ def main():
         vehicle_events = vehicle_event_builder.build_events(analysies)
 
         print(vehicle_events)
+
+        # # save to vehicle_events/
+
+        # for e in vehicle_events:
+        #     save_vehicle_event(storage, e)
 
 
         # Šiet jāseivo atpakaļ minio jaunā vehicle_events direktorijaa un jataisa jauna sadaļa Streamlite lietotnē.

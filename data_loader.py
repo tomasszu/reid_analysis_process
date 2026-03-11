@@ -3,6 +3,8 @@ from typing import Iterable, Dict, Optional
 from dataclasses import dataclass
 import json
 from io import BytesIO
+from inference.vehicle_event import VehicleEvent
+import numpy as np
 
 @dataclass
 class Sighting:
@@ -117,3 +119,60 @@ def update_analysis(storage: StorageBackend, analysis: Sighting):
 
     json_bytes = json.dumps(merged, indent=2).encode("utf-8")
     storage.put_object(analysis_key, json_bytes)
+
+
+def save_vehicle_event(storage: StorageBackend, event: VehicleEvent):
+    """
+    Saves a VehicleEvent JSON to MinIO using its precomputed key.
+
+    Example key:
+    vehicle_events/YYYY/MM/DD/<camera_id>/<event_id>_<ts>.json
+    """
+
+    if not hasattr(event, "obj_key"):
+        raise ValueError("VehicleEvent missing storage key")
+    
+    sighting_count = len(event.sightings)
+    track_count = len(event.tracks)
+    duration_sec = (event.end_ts - event.start_ts) / 1e9
+
+    embedding_variance = None
+    if getattr(event, "embedding_var", None) is not None:
+        embedding_variance = float(np.mean(event.embedding_var))
+
+    # Convert event object → dict
+    event_dict = {
+        "event_id": event.event_id,
+        "camera_id": event.camera_id,
+        "start_ts": event.start_ts,
+        "end_ts": event.end_ts,
+        "last_seen_ts": event.last_seen_ts,
+
+        # summary stats
+        "sighting_count": sighting_count,
+        "track_count": track_count,
+        "duration_sec": duration_sec,
+        "embedding_variance": embedding_variance,
+
+        #references
+        "tracks": event.tracks,
+        # convert sightings → object keys
+        "sightings": [s.obj_key for s in event.sightings],
+
+        #vehicle info
+        "plate": getattr(event, "plate", None),
+        "plate_confidence": getattr(event, "plate_confidence", None),
+        "plate_char_scores": getattr(event, "plate_char_scores", None),
+
+        "representative_image": getattr(event, "representative_image", None),
+
+        "track_merge_scores": getattr(event, "track_merge_scores", {}),
+    }
+
+    if getattr(event, "embedding_centroid", None) is not None:
+        event_dict["embedding_centroid"] = event.embedding_centroid.tolist()
+
+    json_bytes = json.dumps(event_dict, indent=2).encode("utf-8")
+
+    storage.put_object(event.obj_key, json_bytes)
+

@@ -3,6 +3,7 @@ from io import BytesIO
 import numpy as np
 from inference.vehicle_event import VehicleEvent
 from license_plate_detection.plate_similarity import plate_similarity_weighted
+from datetime import datetime, timezone
 
 
 class VehicleEventBuilder:
@@ -113,6 +114,14 @@ class VehicleEventBuilder:
 
     # ------------------- Event Creation & Attachment -------------------
 
+    def ns_to_day(self, ts_ns):
+        dt = datetime.fromtimestamp(ts_ns / 1e9, tz=timezone.utc)
+        return dt.strftime("%Y/%m/%d")
+    
+    def make_event_key(self, camera_id, event_id, ts_ns):
+        day = self.ns_to_day(ts_ns)
+        return f"vehicle_events/{day}/{camera_id}/{event_id}_{ts_ns}.json"
+
     def _create_event(self, track_sightings):
         first = track_sightings[0]
         last = track_sightings[-1]
@@ -123,6 +132,14 @@ class VehicleEventBuilder:
             end_ts=last.data["timestamp_ns"],
             last_seen_ts=last.data["timestamp_ns"],
         )
+
+        # generate storage key
+        event.obj_key = self.make_event_key(
+            event.camera_id,
+            event.event_id,
+            event.start_ts
+        )
+
         self._attach_track(event, track_sightings)
         self.events.append(event)
         self.next_event_id += 1
