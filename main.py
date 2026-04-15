@@ -94,15 +94,15 @@ def main():
 
         # analysies = daylight_filter.mark_daytime(analysies)
 
-        # if lpr_annotator.run_test():
-        #     lpr_annotator.process(analysies)
-        # else:
-        #     print("Skipping License Plate recognition, models not working properly.")
+        if lpr_annotator.run_test():
+            lpr_annotator.process(analysies)
+        else:
+            print("Skipping License Plate recognition, models not working properly.")
 
-        # # save back to analysis/
+        # save back to analysis/
 
-        # for a in analysies:
-        #     update_analysis(storage, a)
+        for a in analysies:
+            update_analysis(storage, a)
 
     
         # <<<<<<<<<<<<<<<<<<<<<<<<<<< Load Analysis pt. 2 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
