@@ -162,16 +162,3 @@ EnrichmentPipeline
 * [ ] Cross-camera trajectory stitching validation
 * [ ] Embedding recomputation / model version upgrades
 * [ ] Anomaly detection on event durations / gaps
-
----
-
-## Notes
-
-* LPR is intentionally separated from ReID pipeline
-* Enrichment assumes **sightings are immutable**
-* Event JSONs are treated as source-of-truth for grouping only
-* Enriched output is safe to regenerate
-
----
-
-If you want, next step I’d strongly recommend adding a **versioned enrichment schema** (so you can rerun LPR without ambiguity when you change OCR logic).
