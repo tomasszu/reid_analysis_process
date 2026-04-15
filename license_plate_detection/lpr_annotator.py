@@ -1,4 +1,3 @@
-import json
 import numpy as np
 from collections import defaultdict
 from typing import List
@@ -21,6 +20,7 @@ class LPRAnnotator:
             "CUDAExecutionProvider",
             "CPUExecutionProvider",
         ]
+
         self.lpr_recognition_model = LicensePlateRecognizer('cct-xs-v1-global-model', providers=onnx_providers)
 
         self.plate_length = plate_length
@@ -60,10 +60,7 @@ class LPRAnnotator:
 
         for sighting in track_sightings:
 
-            if not sighting.data.get("adequate_size"):
-                continue
-
-            if sighting.data.get("duplicate"):
+            if not sighting.data.get("daytime", True):
                 continue
 
             image_key = sighting.data.get("image_path")
