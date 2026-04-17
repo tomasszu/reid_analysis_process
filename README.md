@@ -111,6 +111,25 @@ python main.py --start-date 2026-04-15 --dry-run --enable-lpr
 
 ---
 
+## Docker container Usage
+
+```sh
+
+#local desktop test dry run for one day:
+
+docker run --rm \
+  --network host \
+  -e MINIO_ENDPOINT=localhost:9000 \
+  -e MINIO_ACCESS_KEY=minioadmin \
+  -e MINIO_SECRET_KEY=minioadmin \
+  -e MINIO_BUCKET=reid-service \
+  reideventenrichment:latest \
+  --start-date 2026-04-15 \
+  --dry-run \
+  --limit 10 \
+  --enable-lpr
+```
+
 ## Architecture
 
 ```
