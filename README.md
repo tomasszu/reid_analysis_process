@@ -1,183 +1,232 @@
-# Vehicle Event Enrichment Pipeline
+# ReID Event Enrichment
 
-## Overview
+Post-processing enrichment pipeline for ReID vehicle events.
 
-This service processes pre-existing **vehicle event JSONs** stored in MinIO and generates enriched versions under `enriched_events/`.
-
-It operates *after* the re-identification stage and focuses on dataset augmentation tasks such as:
-
-* License plate recognition (LPR)
-* Event-level aggregation of sighting-level signals
-* Optional future enrichment steps (embeddings, heuristics, metadata augmentation)
-
-The pipeline is designed to be **idempotent**: if an enriched event already exists, it will be skipped unless explicitly overridden.
+The enrichment container loads `vehicle_events`, gathers associated sightings, performs optional enrichment steps (currently License Plate Recognition / LPR), and stores the result as `enriched_events`.
 
 ---
 
-## Data Model
-
-### Input: `vehicle_events/YYYY/MM/DD/<event_id>.json`
-
-Contains:
-
-* vehicle_id (from ReID stage)
-* sightings (list of sighting keys)
-* timestamps, camera_id
-* embeddings (optional)
-* representative sighting
-
-Sightings live in:
-
-```
-sightings/YYYY/MM/DD/<sighting_id>.json
-```
+# Launching
 
 ---
 
-### Output: `enriched_events/YYYY/MM/DD/<event_id>.json`
+## Server Dry Run
 
-Adds:
-
-* `LPR` (event-level aggregated plate)
-* `enrichment` metadata (debug + pipeline stats)
-
----
-
-## Features
-
-### 1. LPR Enrichment (enabled via `--enable-lpr`)
-
-* Runs YOLO-based plate detection
-* OCR decoding via ONNX model
-* Aggregates per-sighting results into a single event-level plate
-* Uses confidence-aware character fusion across sightings
-
----
-
-### 2. Skip Logic
-
-* If enriched event already exists → skip
-* Prevents recomputation on repeated runs
-
----
-
-### 3. Batch Processing
-
-Supports:
-
-* Single day
-* Date range (inclusive)
-
-Example:
-
-```
---start-date 2026-04-15
---end-date 2026-04-20
-```
-
-If only `--start-date` is provided → only that day is processed.
-
----
-
-### 4. Limits & Debugging
-
-* `--limit N` stops after N processed events globally
-* `--dry-run` disables writes
-* Verbose logging per event + per day
-
----
-
-## CLI Usage
-
-```bash
-python main.py \
-  --start-date 2026-04-15 \
-  --end-date 2026-04-20 \
-  --enable-lpr \
-  --limit 100
-```
-
-Single day:
-
-```bash
-python main.py --start-date 2026-04-15 --enable-lpr
-```
-
-Dry run:
-
-```bash
-python main.py --start-date 2026-04-15 --dry-run --enable-lpr
-```
-
----
-
-## Docker container Usage
-
-```sh
-
-#local desktop test dry run for one day:
-
+```sh id="5d40ul"
 docker run --rm \
-  --network host \
-  -e MINIO_ENDPOINT=localhost:9000 \
-  -e MINIO_ACCESS_KEY=minioadmin \
-  -e MINIO_SECRET_KEY=minioadmin \
-  -e MINIO_BUCKET=reid-service \
-  reideventenrichment:latest \
-  --start-date 2026-04-15 \
+  -e MINIO_ENDPOINT=d42edgeai:9090 \
+  -e MINIO_ACCESS_KEY=reid-test \
+  -e MINIO_SECRET_KEY=labaparole \
+  -e MINIO_BUCKET=reid-test \
+  ghcr.io/tomasszu/reideventenrichment:latest \
+  --start-date 2026-05-05 \
   --dry-run \
   --limit 10 \
   --enable-lpr
 ```
 
-## Architecture
+---
 
-```
-MinIO
- ├── vehicle_events/
- ├── sightings/
- ├── images/
- ├── embeddings/
- └── enriched_events/   ← output
+## Full Server Run
 
-EnrichmentPipeline
- ├── load event
- ├── load sightings
- ├── run LPR (optional)
- ├── aggregate event-level metadata
- └── save enriched event
+```sh id="j4cfqi"
+docker run --rm -d \
+  -e MINIO_ENDPOINT=d42edgeai:9090 \
+  -e MINIO_ACCESS_KEY=reid-test \
+  -e MINIO_SECRET_KEY=labaparole \
+  -e MINIO_BUCKET=reid-test \
+  ghcr.io/tomasszu/reideventenrichment:latest \
+  --start-date 2026-04-17 \
+  --end-date 2026-04-18 \
+  --enable-lpr
 ```
 
 ---
 
-## Current TODOs
+# What the Pipeline Does
 
-### Core Improvements
+For every object inside:
 
-* [ ] Parallelize event processing (per-day batching)
-* [ ] Add retry mechanism for corrupted sighting JSONs
-* [ ] Add structured logging (replace prints)
+```text id="v1s8r9"
+vehicle_events/YYYY/MM/DD/
+```
 
-### LPR Improvements
+the pipeline:
 
-* [ ] Cache detection results per sighting (avoid repeated OCR on reruns)
-* [ ] Improve plate confidence calibration
-* [ ] Add multi-frame plate voting across tracks
+1. Loads the vehicle event JSON
+2. Loads all associated sightings
+3. Runs enrichment modules
+4. Saves the enriched output to:
 
-### Data Model
+```text id="2jjqfo"
+enriched_events/YYYY/MM/DD/
+```
 
-* [ ] Store explicit enrichment versioning in event JSON
-* [ ] Add `"enriched_at"` timestamp field
-* [ ] Separate enrichment layers (LPR, embeddings, analytics)
+---
 
-### Performance
+# Current Enrichment Features
 
-* [ ] Batch MinIO reads (reduce per-object latency)
-* [ ] Optional multiprocessing per event batch
+## License Plate Recognition (LPR)
 
-### Future Enrichments
+When enabled:
 
-* [ ] Vehicle re-clustering (post-ReID refinement)
-* [ ] Cross-camera trajectory stitching validation
-* [ ] Embedding recomputation / model version upgrades
-* [ ] Anomaly detection on event durations / gaps
+```text id="d4x16e"
+--enable-lpr
+```
+
+the pipeline performs license plate extraction using the event sightings.
+
+Example enriched structure:
+
+```json id="a8t26d"
+{
+  "LPR": {
+    "plate": "AB1234",
+    "confidence": 0.91
+  }
+}
+```
+
+---
+
+# Generated Metadata
+
+The pipeline also stores enrichment metadata:
+
+```json id="u90lfm"
+{
+  "enrichment": {
+    "num_sightings_loaded": 18,
+    "lpr_enabled": true
+  }
+}
+```
+
+Useful for:
+
+* debugging
+* filtering
+* enrichment validation
+* pipeline statistics
+
+---
+
+# Important CLI Flags
+
+## Date Range
+
+```text id="9jzq71"
+--start-date YYYY-MM-DD
+--end-date YYYY-MM-DD
+```
+
+Processes all days inside the range. Can select only start date for one only day to be processed.
+
+---
+
+## Dry Run
+
+```text id="v2ksf4"
+--dry-run
+```
+
+Runs the full pipeline without saving results.
+
+Useful for:
+
+* debugging
+* validating MinIO connectivity
+* testing enrichment logic
+
+---
+
+## Limit
+
+```text id="bb84yc"
+--limit N
+```
+
+Stops processing after `N` events globally.
+
+Useful for:
+
+* fast validation
+* profiling
+* development testing
+
+---
+
+## Skip Existing
+
+Existing enriched events are skipped automatically by default.
+
+This prevents recomputing already processed data.
+
+---
+
+# Expected Input Structure
+
+## Vehicle Events
+
+```text id="z1l7nr"
+vehicle_events/YYYY/MM/DD/<event>.json
+```
+
+Each event is expected to contain references to sightings.
+
+---
+
+## Sightings
+
+```text id="0te6jv"
+sightings/YYYY/MM/DD/<sighting>.json
+```
+
+Used for:
+
+* LPR processing
+* representative image extraction
+* future enrichment modules
+
+---
+
+# Output Structure
+
+## Enriched Events
+
+```text id="n9rlu2"
+enriched_events/YYYY/MM/DD/<event>.json
+```
+
+The original event is preserved and extended with additional fields.
+
+---
+
+# Container LPR Workflow
+
+```text id="nq1kn4"
+vehicle_events
+    ↓
+load sightings
+    ↓
+run LPR
+    ↓
+attach enrichment metadata
+    ↓
+save enriched_events
+```
+
+---
+
+# Notes
+
+The enrichment pipeline is designed to be modular.
+
+Additional enrichers can later be added for:
+
+* vehicle color
+* vehicle type
+* anomaly detection
+* representative crop selection
+* embedding statistics
+* trajectory analytics
